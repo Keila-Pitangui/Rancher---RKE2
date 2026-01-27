@@ -21,6 +21,7 @@ resource "digitalocean_droplet" "rancher_vms_doplet" {
   size   = each.value.size
   image  = each.value.image
   region = each.value.region
+  tags   = each.value.tags
   ssh_keys = [digitalocean_ssh_key.acesso_vms.id]
 
   user_data = <<-EOF
