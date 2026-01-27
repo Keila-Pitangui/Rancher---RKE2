@@ -1,0 +1,16 @@
+# --- Arquivos de Dados do Terraform ---
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+.terraform.lock.hcl
+*.log
+crash.log
+*.backup
+*.tmp
+.vscode/
+.history/
+.DS_Store
+.nfs*
+id_rsa_rancher.pem
