@@ -50,3 +50,15 @@ resource "local_file" "chave_privada_local" {
   filename = "${path.module}/id_rsa_rancher.pem"
   file_permission = "0600"
 }
+
+resource "digitalocean_firewall" "rancher_firewall" {
+  name = "rancher-ui-access"
+  droplet_ids = [for vm in digitalocean_droplet.rancher_vms_doplet : vm.id if contains(vm.tags, "rancher-server")]
+
+  # Regra para o painel (HTTPS)
+  inbound_rule {
+    protocol         = "tcp"
+    port_range       = "443"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  }
+}
