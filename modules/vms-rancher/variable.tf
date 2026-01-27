@@ -26,9 +26,7 @@ variable "nodes_k8s" {
       size = "s-2vcpu-4gb"
       image = "ubuntu-24-04-x64"
       region = "nyc1"
-      tags = ["k8s-node-03", "control-plane", "worker", "etcd"]
+      tags   = ["k8s-node-04", "control-plane", "worker", "etcd"]
     }
-  }
-
 }
-
+}
