@@ -1,0 +1,2 @@
+- instalar rancher RKE2 no host
+- instalar kubectl no host
