@@ -52,13 +52,59 @@ resource "local_file" "chave_privada_local" {
 }
 
 resource "digitalocean_firewall" "rancher_firewall" {
-  name = "rancher-ui-access"
-  droplet_ids = [for vm in digitalocean_droplet.rancher_vms_doplet : vm.id if contains(vm.tags, "rancher-server")]
+  name = "rancher-cluster-firewall"
+  
+  # Aplica a todos os Droplets do cluster
+  droplet_ids = [for vm in digitalocean_droplet.rancher_vms_doplet : vm.id]
 
-  # Regra para o painel (HTTPS)
+  # 1. Acesso Externo (UI e API)
   inbound_rule {
     protocol         = "tcp"
     port_range       = "443"
     source_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  inbound_rule {
+    protocol         = "tcp"
+    port_range       = "80" # Necessário para o redirecionamento HTTP -> HTTPS
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  inbound_rule {
+    protocol         = "tcp"
+    port_range       = "6443" # Kubernetes API
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  inbound_rule {
+    protocol         = "tcp"
+    port_range       = "22" 
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  # Comunicação INTERNA (Entre os nós do cluster)
+  inbound_rule {
+    protocol         = "tcp"
+    port_range       = "1-65535"
+    source_tags      = ["control-plane", "worker"] 
+  }
+
+  inbound_rule {
+    protocol         = "udp"
+    port_range       = "1-65535"
+    source_tags      = ["control-plane", "worker"]
+  }
+
+  # Regras de Saída (Outbound) - Permitir tudo
+  outbound_rule {
+    protocol                = "tcp"
+    port_range              = "1-65535"
+    destination_addresses   = ["0.0.0.0/0", "::/0"]
+  }
+
+  outbound_rule {
+    protocol                = "udp"
+    port_range              = "1-65535"
+    destination_addresses   = ["0.0.0.0/0", "::/0"]
   }
 }
