@@ -7,13 +7,6 @@ terraform {
   }
 }
 
-resource "digitalocean_project" "rancher_rke" {
-  name        = "Rancher_RKE2"
-  description = "A project to represent development resources."
-  purpose     = "Web Application"
-  environment = "Development"
-}
-
 resource "digitalocean_droplet" "rancher_vms_doplet" {
   for_each = var.nodes_k8s
 
@@ -32,6 +25,30 @@ resource "digitalocean_droplet" "rancher_vms_doplet" {
     chmod 600 /root/.ssh/id_rsa
     cp /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
     ufw disable
+    
+    mkdir -p /etc/rancher/rke2/
+
+    if [ "${each.key}" == "rancher-server" ]; then
+      cat <<EOT > /etc/rancher/rke2/config.yaml
+token: my-rancher-secret
+tls-san:
+  - rancher.keilapitangui.com.br
+  - cluster.keilapitangui.com.br
+write-kubeconfig-mode: "0644" 
+EOT
+      curl -sfL https://get.rke2.io | sh -
+      systemctl enable rke2-server.service
+      systemctl start rke2-server.service 
+    else
+      cat <<EOT > /etc/rancher/rke2/config.yaml
+token: my-rancher-secret
+server: https://rancher.keilapitangui.com.br:9345
+EOT
+      # CORREÇÃO: Usar INSTALL_RKE2_TYPE="agent" e o serviço rke2-agent
+      curl -sfL https://get.rke2.io | INSTALL_RKE2_TYPE="agent" sh -
+      systemctl enable rke2-agent.service
+      systemctl start rke2-agent.service 
+    fi
   EOF
 }
 
@@ -57,7 +74,7 @@ resource "digitalocean_firewall" "rancher_firewall" {
   # Aplica a todos os Droplets do cluster
   droplet_ids = [for vm in digitalocean_droplet.rancher_vms_doplet : vm.id]
 
-  # 1. Acesso Externo (UI e API)
+  # Acesso Externo (UI e API)
   inbound_rule {
     protocol         = "tcp"
     port_range       = "443"
@@ -67,6 +84,12 @@ resource "digitalocean_firewall" "rancher_firewall" {
   inbound_rule {
     protocol         = "tcp"
     port_range       = "80" # Necessário para o redirecionamento HTTP -> HTTPS
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  }
+  
+  inbound_rule {
+    protocol         = "tcp"
+    port_range       = "9345"
     source_addresses = ["0.0.0.0/0", "::/0"]
   }
 
@@ -106,5 +129,42 @@ resource "digitalocean_firewall" "rancher_firewall" {
     protocol                = "udp"
     port_range              = "1-65535"
     destination_addresses   = ["0.0.0.0/0", "::/0"]
+  }
+}
+
+
+resource "digitalocean_loadbalancer" "lb_public" {
+
+  droplet_ids = [for vm in digitalocean_droplet.rancher_vms_doplet : vm.id]
+  
+  name   = "lb-rancher-server"
+  region = "nyc1"
+
+  forwarding_rule {
+    entry_port     = 80
+    entry_protocol = "tcp"
+
+    target_port     = 80
+    target_protocol = "tcp"
+  }
+
+    forwarding_rule {
+    entry_port     = 443
+    entry_protocol = "tcp"
+
+    target_port     = 443
+    target_protocol = "tcp"
+  }
+
+  forwarding_rule {
+  entry_port     = 9345
+  entry_protocol = "tcp"
+  target_port     = 9345
+  target_protocol = "tcp"
+  }
+
+  healthcheck {
+    port     = 22
+    protocol = "tcp"
   }
 }

@@ -20,13 +20,13 @@ variable "nodes_k8s" {
       size   = "s-2vcpu-4gb"
       image = "ubuntu-24-04-x64"
       region = "nyc1"
-      tags   = [ "rancher-server", "k8s-node-02", "control-plane", "worker", "etcd"]
+      tags   = ["k8s-node-02", "control-plane", "worker", "etcd", "node"]
     },
     "k8s-03" = {
       size = "s-2vcpu-4gb"
       image = "ubuntu-24-04-x64"
       region = "nyc1"
-      tags   = ["rancher-server", "k8s-node-03", "control-plane", "worker", "etcd"]
+      tags   = ["k8s-node-03", "control-plane", "worker", "etcd", "node"]
     }
 }
 }
