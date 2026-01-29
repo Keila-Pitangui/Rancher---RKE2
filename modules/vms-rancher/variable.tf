@@ -1,3 +1,15 @@
+variable "region" {
+  type = string
+  description = "environment region"
+  default = "nyc1"
+}
+
+variable "name_project" {
+  type = string
+  description = "project name"
+  default = "Rancher-RKE"
+}
+
 
 variable "nodes_k8s" {
 
@@ -10,12 +22,6 @@ variable "nodes_k8s" {
   }))
 
   default = {
-    "rancher-server" = {
-      size = "s-2vcpu-4gb"
-      image = "ubuntu-24-04-x64"
-      region = "nyc1"
-      tags = ["rancher-server", "control-plane", "worker","etcd"]
-    },
     "k8s-02" = {
       size   = "s-2vcpu-4gb"
       image = "ubuntu-24-04-x64"
@@ -30,3 +36,23 @@ variable "nodes_k8s" {
     }
 }
 }
+
+variable "rancher_server" {
+  description = "Map de vm para rancher"
+  type = map(object({
+    size = string
+    image = string
+    region= string
+    tags = list(string)
+  }))
+
+  default = {
+    "rancher-server" = {
+      size = "s-2vcpu-4gb"
+      image = "ubuntu-24-04-x64"
+      region = "nyc1"
+      tags = ["rancher-server", "control-plane", "worker","etcd"]
+    }
+  }
+}
+

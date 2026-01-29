@@ -7,7 +7,53 @@ terraform {
   }
 }
 
+resource "digitalocean_project" "playground" {
+  name        = var.name_project
+  description = "A project to represent development resources."
+  purpose     = "Web Application"
+  environment = "Development"
+   resources = concat(
+  [for vm in digitalocean_droplet.rancher_vms_doplet : vm.urn],
+  [for vm in digitalocean_droplet.rancher_vms : vm.urn]
+  )
+}
+
+
 resource "digitalocean_droplet" "rancher_vms_doplet" {
+  for_each = var.rancher_server
+
+  name   = each.key        
+  size   = each.value.size
+  image  = each.value.image
+  region = each.value.region
+  tags   = each.value.tags
+  ssh_keys = [digitalocean_ssh_key.acesso_vms.id]
+
+  user_data = <<-EOF
+    #!/bin/bash
+    apt-get update && apt-get install -y curl cloud-utils
+    mkdir -p /root/.ssh
+    echo "${tls_private_key.chave_vms.private_key_pem}" > /root/.ssh/id_rsa
+    chmod 600 /root/.ssh/id_rsa
+    cp /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
+    ufw disable
+    mkdir -p /etc/rancher/rke2/
+    cd /etc/rancher/rke2/
+    touch config.yaml
+    chmod -R 777 config.yaml
+    cat >'config.yaml' <<EOT
+    token: rancher-secret
+    tls-san:
+      - rancher.keilapitangui.com.br
+      - cluster.keilapitangui.com.br
+    EOT
+    curl -sfL https://get.rke2.io | sh -
+    systemctl enable rke2-server.service
+    systemctl start rke2-server.service
+  EOF
+}
+
+resource "digitalocean_droplet" "rancher_vms" {
   for_each = var.nodes_k8s
 
   name   = each.key        
@@ -25,30 +71,20 @@ resource "digitalocean_droplet" "rancher_vms_doplet" {
     chmod 600 /root/.ssh/id_rsa
     cp /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
     ufw disable
-    
     mkdir -p /etc/rancher/rke2/
-
-    if [ "${each.key}" == "rancher-server" ]; then
-      cat <<EOT > /etc/rancher/rke2/config.yaml
-token: my-rancher-secret
-tls-san:
-  - rancher.keilapitangui.com.br
-  - cluster.keilapitangui.com.br
-write-kubeconfig-mode: "0644" 
-EOT
-      curl -sfL https://get.rke2.io | sh -
-      systemctl enable rke2-server.service
-      systemctl start rke2-server.service 
-    else
-      cat <<EOT > /etc/rancher/rke2/config.yaml
-token: my-rancher-secret
-server: https://rancher.keilapitangui.com.br:9345
-EOT
-      # CORREÇÃO: Usar INSTALL_RKE2_TYPE="agent" e o serviço rke2-agent
-      curl -sfL https://get.rke2.io | INSTALL_RKE2_TYPE="agent" sh -
-      systemctl enable rke2-agent.service
-      systemctl start rke2-agent.service 
-    fi
+    cd /etc/rancher/rke2/
+    touch config.yaml
+    chmod -R 777 config.yaml
+    cat >'config.yaml' <<EOT
+    token: rancher-secret
+    server: rancher.keilapitangui.com.br:9345
+    tls-san:
+      - rancher.keilapitangui.com.br
+      - cluster.keilapitangui.com.br
+    EOT
+    curl -sfL https://get.rke2.io | sh -
+    systemctl enable rke2-server.service
+    systemctl start rke2-server.service
   EOF
 }
 
@@ -72,7 +108,10 @@ resource "digitalocean_firewall" "rancher_firewall" {
   name = "rancher-cluster-firewall"
   
   # Aplica a todos os Droplets do cluster
-  droplet_ids = [for vm in digitalocean_droplet.rancher_vms_doplet : vm.id]
+  droplet_ids = concat(
+  [for vm in digitalocean_droplet.rancher_vms_doplet : vm.id],
+  [for vm in digitalocean_droplet.rancher_vms : vm.id]
+  )
 
   # Acesso Externo (UI e API)
   inbound_rule {
@@ -83,7 +122,7 @@ resource "digitalocean_firewall" "rancher_firewall" {
 
   inbound_rule {
     protocol         = "tcp"
-    port_range       = "80" # Necessário para o redirecionamento HTTP -> HTTPS
+    port_range       = "80" # redirecionamento HTTP -> HTTPS
     source_addresses = ["0.0.0.0/0", "::/0"]
   }
   
@@ -135,10 +174,13 @@ resource "digitalocean_firewall" "rancher_firewall" {
 
 resource "digitalocean_loadbalancer" "lb_public" {
 
-  droplet_ids = [for vm in digitalocean_droplet.rancher_vms_doplet : vm.id]
-  
+  droplet_ids = concat(
+    [for vm in digitalocean_droplet.rancher_vms_doplet : vm.id],
+    [for vm in digitalocean_droplet.rancher_vms : vm.id]
+    )
+
   name   = "lb-rancher-server"
-  region = "nyc1"
+  region = var.region
 
   forwarding_rule {
     entry_port     = 80
@@ -153,6 +195,12 @@ resource "digitalocean_loadbalancer" "lb_public" {
     entry_protocol = "tcp"
 
     target_port     = 443
+    target_protocol = "tcp"
+  }
+  forwarding_rule {
+    entry_port     = 6443
+    entry_protocol = "tcp" 
+    target_port     = 6443
     target_protocol = "tcp"
   }
 
