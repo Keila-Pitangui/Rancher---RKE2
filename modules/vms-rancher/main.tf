@@ -7,50 +7,12 @@ terraform {
   }
 }
 
-resource "digitalocean_project" "playground" {
+resource "digitalocean_project" "rancher_project" {
   name        = var.name_project
   description = "A project to represent development resources."
   purpose     = "Web Application"
   environment = "Development"
-   resources = concat(
-  [for vm in digitalocean_droplet.rancher_vms_doplet : vm.urn],
-  [for vm in digitalocean_droplet.rancher_vms : vm.urn]
-  )
-}
-
-
-resource "digitalocean_droplet" "rancher_vms_doplet" {
-  for_each = var.rancher_server
-
-  name   = each.key        
-  size   = each.value.size
-  image  = each.value.image
-  region = each.value.region
-  tags   = each.value.tags
-  ssh_keys = [digitalocean_ssh_key.acesso_vms.id]
-
-  user_data = <<-EOF
-    #!/bin/bash
-    apt-get update && apt-get install -y curl cloud-utils
-    mkdir -p /root/.ssh
-    echo "${tls_private_key.chave_vms.private_key_pem}" > /root/.ssh/id_rsa
-    chmod 600 /root/.ssh/id_rsa
-    cp /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
-    ufw disable
-    mkdir -p /etc/rancher/rke2/
-    cd /etc/rancher/rke2/
-    touch config.yaml
-    chmod -R 777 config.yaml
-    cat >'config.yaml' <<EOT
-    token: rancher-secret
-    tls-san:
-      - rancher.keilapitangui.com.br
-      - cluster.keilapitangui.com.br
-    EOT
-    curl -sfL https://get.rke2.io | sh -
-    systemctl enable rke2-server.service
-    systemctl start rke2-server.service
-  EOF
+  resources = [for vm in digitalocean_droplet.rancher_vms : vm.urn]
 }
 
 resource "digitalocean_droplet" "rancher_vms" {
@@ -65,7 +27,7 @@ resource "digitalocean_droplet" "rancher_vms" {
 
   user_data = <<-EOF
     #!/bin/bash
-    apt-get update && apt-get install -y curl cloud-utils
+    apt-get update && apt-get install -y curl cloud-u_doplettils
     mkdir -p /root/.ssh
     echo "${tls_private_key.chave_vms.private_key_pem}" > /root/.ssh/id_rsa
     chmod 600 /root/.ssh/id_rsa
@@ -108,10 +70,7 @@ resource "digitalocean_firewall" "rancher_firewall" {
   name = "rancher-cluster-firewall"
   
   # Aplica a todos os Droplets do cluster
-  droplet_ids = concat(
-  [for vm in digitalocean_droplet.rancher_vms_doplet : vm.id],
-  [for vm in digitalocean_droplet.rancher_vms : vm.id]
-  )
+  droplet_ids = [for vm in digitalocean_droplet.rancher_vms : vm.id]
 
   # Acesso Externo (UI e API)
   inbound_rule {
@@ -174,10 +133,7 @@ resource "digitalocean_firewall" "rancher_firewall" {
 
 resource "digitalocean_loadbalancer" "lb_public" {
 
-  droplet_ids = concat(
-    [for vm in digitalocean_droplet.rancher_vms_doplet : vm.id],
-    [for vm in digitalocean_droplet.rancher_vms : vm.id]
-    )
+  droplet_ids = [for vm in digitalocean_droplet.rancher_vms : vm.id]
 
   name   = "lb-rancher-server"
   region = var.region
