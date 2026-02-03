@@ -8,7 +8,7 @@ terraform {
 
   backend "s3" {
     endpoint                    = "nyc1.digitaloceanspaces.com" # Endereço da DO
-    region                      = "us-east-1"                   # Precisa estar aqui, mas é ignorado pela DO
+    region                      = "us-east-1"                   
     bucket                      = "rancher-rke2"
     key                         = "projeto/rancher-rke2-terraform.tfstate"
     skip_credentials_validation = true
