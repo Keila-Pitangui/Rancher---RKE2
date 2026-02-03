@@ -9,6 +9,7 @@ terraform {
 
 resource "digitalocean_project" "rancher_project" {
   name        = var.name_project
+  lifecycle { prevent_destroy = true } #impedir o destroy desse recurso
   description = "A project to represent development resources."
   purpose     = "Web Application"
   environment = "Development"
