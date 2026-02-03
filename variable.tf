@@ -1,3 +1,3 @@
 variable "do_token" {
-    sensitive = true
+  sensitive = true
 }
