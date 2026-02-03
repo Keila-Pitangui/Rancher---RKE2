@@ -1,2 +1,7 @@
 - instalar rancher RKE2 no host
 - instalar kubectl no host
+
+
+
+  lifecycle { prevent_destroy = true } #impedir o destroy desse recurso
+      sensitive = true
