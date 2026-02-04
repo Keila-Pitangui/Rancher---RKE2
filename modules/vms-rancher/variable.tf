@@ -48,3 +48,9 @@ variable "port_firewall_dynamic" {
   type = list(number)
   default = [80, 443, 22, 6443, 9345]
 }
+
+variable "lb_dynamic" {
+  description = "firewall ports"
+  type = list(number)
+  default = [80, 443, 22, 6443, 9345]
+}
