@@ -8,22 +8,22 @@ terraform {
 }
 
 resource "digitalocean_project" "rancher_project" {
-  name        = var.name_project
+  name = var.name_project
   lifecycle { prevent_destroy = true } #impedir o destroy desse recurso
   description = "A project to represent development resources."
   purpose     = "Web Application"
   environment = "Development"
-  resources = [for vm in digitalocean_droplet.rancher_vms : vm.urn]
+  resources   = [for vm in digitalocean_droplet.rancher_vms : vm.urn]
 }
 
 resource "digitalocean_droplet" "rancher_vms" {
   for_each = var.nodes_k8s
 
-  name   = each.key        
-  size   = each.value.size
-  image  = each.value.image
-  region = each.value.region
-  tags   = each.value.tags
+  name     = each.key
+  size     = each.value.size
+  image    = each.value.image
+  region   = each.value.region
+  tags     = each.value.tags
   ssh_keys = [digitalocean_ssh_key.acesso_vms.id]
 
   user_data = <<-EOF
@@ -62,8 +62,8 @@ resource "digitalocean_ssh_key" "acesso_vms" {
 }
 
 resource "local_file" "chave_privada_local" {
-  content  = tls_private_key.chave_vms.private_key_pem
-  filename = "${path.module}/id_rsa_rancher.pem"
+  content         = tls_private_key.chave_vms.private_key_pem
+  filename        = "${path.module}/id_rsa_rancher.pem"
   file_permission = "0600"
 }
 
@@ -73,40 +73,52 @@ resource "digitalocean_firewall" "rancher_firewall" {
   # Aplica a todos os Droplets do cluster
   droplet_ids = [for vm in digitalocean_droplet.rancher_vms : vm.id]
 
-   dynamic "inbound_rule" {
+  dynamic "inbound_rule" {
     for_each = var.port_firewall_dynamic
 
-    content{
-    protocol = "tcp"
-    port_range = inbound_rule.value
-    source_addresses = ["0.0.0.0/0", "::/0"]
+    content {
+      protocol         = "tcp"
+      port_range       = inbound_rule.value
+      source_addresses = ["0.0.0.0/0", "::/0"]
     }
   }
 
   # Comunicação INTERNA (Entre os nós do cluster)
   inbound_rule {
-    protocol         = "tcp"
-    port_range       = "1-65535"
-    source_tags      = ["control-plane", "worker"] 
+    protocol    = "tcp"
+    port_range  = "1-65535"
+    source_tags = ["control-plane", "worker"]
   }
 
   inbound_rule {
-    protocol         = "udp"
-    port_range       = "1-65535"
-    source_tags      = ["control-plane", "worker"]
+    protocol    = "udp"
+    port_range  = "1-65535"
+    source_tags = ["control-plane", "worker"]
   }
 
   # Regras de Saída (Outbound) - Permitir tudo
   outbound_rule {
-    protocol                = "tcp"
-    port_range              = "1-65535"
-    destination_addresses   = ["0.0.0.0/0", "::/0"]
+    protocol              = "tcp"
+    port_range            = "1-65535"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 
   outbound_rule {
-    protocol                = "udp"
-    port_range              = "1-65535"
-    destination_addresses   = ["0.0.0.0/0", "::/0"]
+    protocol              = "udp"
+    port_range            = "1-65535"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  dynamic "outbound_rule" {
+
+    for_each = var.outboud_firewall
+
+    content {
+      protocol              = []
+      port_range            = outbound_rule.value
+      destination_addresses = ["0.0.0.0/0", "::/0"]
+    }
+
   }
 }
 
@@ -120,13 +132,13 @@ resource "digitalocean_loadbalancer" "lb_public" {
 
   dynamic "forwarding_rule" {
 
-  for_each = var.lb_dynamic
-  content {
-   entry_protocol  = "tcp"
+    for_each = var.lb_dynamic
+    content {
+      entry_protocol  = "tcp"
       entry_port      = forwarding_rule.value
       target_protocol = "tcp"
       target_port     = forwarding_rule.value
-  }
+    }
   }
 
   healthcheck {
