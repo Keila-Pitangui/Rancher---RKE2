@@ -118,33 +118,15 @@ resource "digitalocean_loadbalancer" "lb_public" {
   name   = "lb-rancher-server"
   region = var.region
 
-  forwarding_rule {
-    entry_port     = 80
-    entry_protocol = "tcp"
+  dynamic "forwarding_rule" {
 
-    target_port     = 80
-    target_protocol = "tcp"
+  for_each = var.lb_dynamic
+  content {
+   entry_protocol  = "tcp"
+      entry_port      = forwarding_rule.value
+      target_protocol = "tcp"
+      target_port     = forwarding_rule.value
   }
-
-    forwarding_rule {
-    entry_port     = 443
-    entry_protocol = "tcp"
-
-    target_port     = 443
-    target_protocol = "tcp"
-  }
-  forwarding_rule {
-    entry_port     = 6443
-    entry_protocol = "tcp" 
-    target_port     = 6443
-    target_protocol = "tcp"
-  }
-
-  forwarding_rule {
-  entry_port     = 9345
-  entry_protocol = "tcp"
-  target_port     = 9345
-  target_protocol = "tcp"
   }
 
   healthcheck {
