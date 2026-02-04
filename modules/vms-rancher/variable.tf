@@ -43,3 +43,8 @@ variable "nodes_k8s" {
 }
 }
 
+variable "port_firewall_dynamic" {
+  description = "firewall ports"
+  type = list(number)
+  default = [80, 443, 22, 6443, 9345]
+}

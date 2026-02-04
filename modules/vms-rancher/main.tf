@@ -69,39 +69,18 @@ resource "local_file" "chave_privada_local" {
 
 resource "digitalocean_firewall" "rancher_firewall" {
   name = "rancher-cluster-firewall"
-  
+
   # Aplica a todos os Droplets do cluster
   droplet_ids = [for vm in digitalocean_droplet.rancher_vms : vm.id]
 
-  # Acesso Externo (UI e API)
-  inbound_rule {
-    protocol         = "tcp"
-    port_range       = "443"
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  }
+   dynamic "inbound_rule" {
+    for_each = var.port_firewall_dynamic
 
-  inbound_rule {
-    protocol         = "tcp"
-    port_range       = "80" # redirecionamento HTTP -> HTTPS
+    content{
+    protocol = "tcp"
+    port_range = inbound_rule.value
     source_addresses = ["0.0.0.0/0", "::/0"]
-  }
-  
-  inbound_rule {
-    protocol         = "tcp"
-    port_range       = "9345"
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  }
-
-  inbound_rule {
-    protocol         = "tcp"
-    port_range       = "6443" # Kubernetes API
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  }
-
-  inbound_rule {
-    protocol         = "tcp"
-    port_range       = "22" 
-    source_addresses = ["0.0.0.0/0", "::/0"]
+    }
   }
 
   # Comunicação INTERNA (Entre os nós do cluster)
